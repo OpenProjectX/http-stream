@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -67,6 +69,10 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 	}
 	defer body.Close()
 
+	if req.Target.LocalPath != "" {
+		return s.transferToLocalFile(body, sourceResp.StatusCode, req.Target.LocalPath)
+	}
+
 	targetReq, err := buildHTTPRequest(ctx, req.Target, body)
 	if err != nil {
 		return nil, fmt.Errorf("build target request: %w", err)
@@ -95,6 +101,30 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 	}, nil
 }
 
+func (s *Streamer) transferToLocalFile(body io.Reader, sourceStatusCode int, localPath string) (*httpstreamv1.TransferResponse, error) {
+	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
+		return nil, fmt.Errorf("create parent directories for %q: %w", localPath, err)
+	}
+
+	file, err := os.Create(localPath)
+	if err != nil {
+		return nil, fmt.Errorf("create target file %q: %w", localPath, err)
+	}
+	defer file.Close()
+
+	written, err := io.Copy(file, body)
+	if err != nil {
+		return nil, fmt.Errorf("write target file %q: %w", localPath, err)
+	}
+
+	return &httpstreamv1.TransferResponse{
+		TransferID:       s.now().UTC().Format("20060102T150405.000000000Z07:00"),
+		BytesTransferred: written,
+		SourceStatusCode: int32(sourceStatusCode),
+		TargetStatusCode: 0,
+	}, nil
+}
+
 func validateTransferRequest(req *httpstreamv1.TransferRequest) error {
 	if req == nil {
 		return errors.New("request is required")
@@ -105,13 +135,19 @@ func validateTransferRequest(req *httpstreamv1.TransferRequest) error {
 	if req.Target == nil {
 		return errors.New("target is required")
 	}
-	if req.Source.URL == "" || req.Target.URL == "" {
-		return errors.New("source.url and target.url are required")
+	if req.Source.URL == "" {
+		return errors.New("source.url is required")
+	}
+	if req.Target.URL == "" && req.Target.LocalPath == "" {
+		return errors.New("target.url or target.local_path is required")
+	}
+	if req.Target.URL != "" && req.Target.LocalPath != "" {
+		return errors.New("target.url and target.local_path are mutually exclusive")
 	}
 	if req.Source.Method == "" {
 		req.Source.Method = http.MethodGet
 	}
-	if req.Target.Method == "" {
+	if req.Target.LocalPath == "" && req.Target.Method == "" {
 		req.Target.Method = http.MethodPut
 	}
 	return nil

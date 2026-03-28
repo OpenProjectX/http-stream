@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/OpenProjectX/http-stream/internal/api/httpstreamv1"
@@ -59,5 +61,45 @@ func TestTransfer(t *testing.T) {
 	}
 	if resp.TargetStatusCode != http.StatusCreated {
 		t.Fatalf("target status = %d", resp.TargetStatusCode)
+	}
+}
+
+func TestTransferToLocalFile(t *testing.T) {
+	payload := "disk target"
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, payload)
+	}))
+	defer source.Close()
+
+	targetPath := filepath.Join(t.TempDir(), "nested", "payload.bin")
+
+	svc := New(source.Client(), pipeline.NewRegistry())
+	resp, err := svc.Transfer(context.Background(), &httpstreamv1.TransferRequest{
+		Source: &httpstreamv1.HTTPRequest{
+			Method: http.MethodGet,
+			URL:    source.URL,
+		},
+		Target: &httpstreamv1.HTTPRequest{
+			LocalPath: targetPath,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Transfer() error = %v", err)
+	}
+
+	got, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+
+	if string(got) != payload {
+		t.Fatalf("file contents = %q want %q", got, payload)
+	}
+	if resp.BytesTransferred != int64(len(payload)) {
+		t.Fatalf("bytes = %d want %d", resp.BytesTransferred, len(payload))
+	}
+	if resp.TargetStatusCode != 0 {
+		t.Fatalf("target status = %d want 0 for local file target", resp.TargetStatusCode)
 	}
 }

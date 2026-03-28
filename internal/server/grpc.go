@@ -125,6 +125,7 @@ func decodeHTTPRequest(msg protoreflect.Message) *httpstreamv1.HTTPRequest {
 		Method:        msg.Get(fields.ByName("method")).String(),
 		URL:           msg.Get(fields.ByName("url")).String(),
 		ContentLength: msg.Get(fields.ByName("content_length")).Int(),
+		LocalPath:     msg.Get(fields.ByName("local_path")).String(),
 	}
 
 	headersField := fields.ByName("headers")
@@ -200,6 +201,7 @@ func buildFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 					field("url", 2, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_STRING, "", "url"),
 					field("headers", 3, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, ".httpstream.v1.HttpRequest.HeadersEntry", "headers"),
 					field("content_length", 4, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "contentLength"),
+					field("local_path", 5, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_STRING, "", "localPath"),
 				},
 				NestedType: []*descriptorpb.DescriptorProto{
 					{

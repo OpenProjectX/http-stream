@@ -1,12 +1,13 @@
 # http-stream
 
-`http-stream` is a Go 1.26 service that copies an HTTP source response body directly into an HTTP target request body without buffering the full payload to disk. The service is controlled through a gRPC API and supports pluggable streaming pipeline stages, so transforms such as encryption can be applied in flight.
+`http-stream` is a Go 1.26 service that copies an HTTP source response body directly into either an HTTP target request body or a local file without buffering the full payload to disk. The service is controlled through a gRPC API and supports pluggable streaming pipeline stages, so transforms such as encryption can be applied in flight.
 
 ## What is implemented
 
 - gRPC service contract in [`api/httpstream/v1/httpstream.proto`](api/httpstream/v1/httpstream.proto)
 - gRPC server in [`cmd/http-streamd`](cmd/http-streamd)
 - HTTP source-to-target streaming with zero-disk buffering
+- HTTP source-to-local-disk streaming
 - Extensible pipeline registry over `io.Reader` / `io.ReadCloser`
 - Built-in `encrypt.aes_ctr` stage for streaming encryption before upload
 - Unit tests for the pipeline stage and the HTTP transfer flow
@@ -22,12 +23,14 @@ rpc Transfer(TransferRequest) returns (TransferResponse);
 `TransferRequest` contains:
 
 - `source`: upstream HTTP request definition, typically `GET`
-- `target`: downstream HTTP request definition, typically `PUT` or `POST`
+- `target`: downstream HTTP request definition for remote uploads, or a local disk path for on-machine writes
 - `pipeline`: ordered stages to wrap the source stream before it is sent to the target
 
 ## Example request
 
 The service now speaks standard protobuf gRPC, so IDE clients such as GoLand or IntelliJ gRPC requests can use the proto contract directly.
+
+HTTP target example:
 
 ```json
 {
@@ -58,6 +61,20 @@ The service now speaks standard protobuf gRPC, so IDE clients such as GoLand or 
 }
 ```
 
+Local disk target example:
+
+```json
+{
+  "source": {
+    "method": "GET",
+    "url": "https://source.example/object"
+  },
+  "target": {
+    "localPath": "/tmp/http-stream/object.bin"
+  }
+}
+```
+
 ## Run
 
 ```bash
@@ -85,3 +102,5 @@ To add a new pipeline transform:
 3. Pass the stage name and config in the `pipeline` field of the request.
 
 This keeps transport concerns, HTTP streaming, and transform logic separated so the project can grow into retries, observability, auth plugins, or richer transfer policies without reworking the core pipeline.
+
+For local disk targets, the service creates parent directories automatically and returns `target_status_code = 0` because no downstream HTTP response exists.

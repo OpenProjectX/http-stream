@@ -28,6 +28,20 @@ GRPC localhost:7080/httpstream.v1.StreamService/Transfer
   }
 }
 
+
+### Transfer to local disk
+GRPC localhost:7080/httpstream.v1.StreamService/Transfer
+
+{
+  "source": {
+    "method": "GET",
+    "url": "https://github.com/OpenProjectX"
+  },
+  "target": {
+    "localPath": "/tmp/http-stream/object.bin"
+  }
+}
+
 ###
 
 ### Transfer with AES-CTR encryption pipeline

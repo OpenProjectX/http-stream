@@ -11,6 +11,7 @@ type HTTPRequest struct {
 	URL           string
 	Headers       map[string]string
 	ContentLength int64
+	LocalPath     string
 }
 
 type PipelineStage struct {
