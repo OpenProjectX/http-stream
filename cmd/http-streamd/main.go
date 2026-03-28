@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
 	"github.com/OpenProjectX/http-stream/internal/server"
@@ -30,6 +31,8 @@ func main() {
 
 	registry := pipeline.NewRegistry(pipeline.AESCTRStage{})
 	streamer := service.New(httpClient, registry)
+	streamer.SetLogger(log.Default())
+	streamer.SetProgressLogInterval(getenvDuration("HTTP_STREAM_PROGRESS_LOG_INTERVAL", 2*time.Second))
 
 	grpcServer := grpc.NewServer()
 	server.Register(grpcServer, server.New(streamer))
@@ -46,4 +49,17 @@ func getenv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getenvDuration(key string, fallback time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	duration, err := time.ParseDuration(value)
+	if err != nil {
+		log.Printf("invalid duration for %s=%q, using fallback %s", key, value, fallback)
+		return fallback
+	}
+	return duration
 }

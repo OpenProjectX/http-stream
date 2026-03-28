@@ -97,6 +97,7 @@ go run ./cmd/http-streamd
 ```
 
 Set `HTTP_STREAM_LISTEN_ADDR` to override the default listen address `:8080`.
+Set `HTTP_STREAM_PROGRESS_LOG_INTERVAL` to control periodic progress logs. Example: `500ms`, `2s`, `5s`.
 
 ## Test
 
@@ -123,3 +124,15 @@ For local disk targets, the service creates parent directories automatically and
 For observability, the gRPC response now carries final transfer metrics so clients can record throughput and completion without scraping logs.
 
 For continuous observability, use `TransferStream` from the UI and bind `progressPercent` or `bytesTransferred / sourceContentLength` to the progress bar.
+
+## Troubleshooting Logs
+
+The service now logs detailed transfer lifecycle events for debugging:
+
+- transfer start with source, target, and pipeline size
+- source response status and content length
+- target selection and request failures
+- periodic progress snapshots with rate and percent complete
+- final completion metrics
+
+Progress logging is rate-limited by `HTTP_STREAM_PROGRESS_LOG_INTERVAL` and defaults to `2s`.
