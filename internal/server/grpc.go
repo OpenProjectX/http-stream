@@ -22,6 +22,7 @@ var (
 	httpRequestDesc         protoreflect.MessageDescriptor
 	pipelineStageDesc       protoreflect.MessageDescriptor
 	transferResponseDesc    protoreflect.MessageDescriptor
+	transferProgressDesc    protoreflect.MessageDescriptor
 	streamServiceFullMethod = "/httpstream.v1.StreamService/Transfer"
 )
 
@@ -40,6 +41,7 @@ func init() {
 	httpRequestDesc = messages.ByName("HttpRequest")
 	pipelineStageDesc = messages.ByName("PipelineStage")
 	transferResponseDesc = messages.ByName("TransferResponse")
+	transferProgressDesc = messages.ByName("TransferProgress")
 }
 
 type GRPCServer struct {
@@ -58,6 +60,13 @@ func Register(grpcServer *grpc.Server, srv *GRPCServer) {
 			{
 				MethodName: "Transfer",
 				Handler:    transferHandler,
+			},
+		},
+		Streams: []grpc.StreamDesc{
+			{
+				StreamName:    "TransferStream",
+				Handler:       transferStreamHandler,
+				ServerStreams: true,
 			},
 		},
 		Metadata: "api/httpstream/v1/httpstream.proto",
@@ -92,6 +101,22 @@ func transferHandler(srv any, ctx context.Context, dec func(any) error, intercep
 		FullMethod: streamServiceFullMethod,
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func transferStreamHandler(srv any, ss grpc.ServerStream) error {
+	in := dynamicpb.NewMessage(transferRequestDesc)
+	if err := ss.RecvMsg(in); err != nil {
+		return err
+	}
+
+	internalReq, err := decodeTransferRequest(in)
+	if err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	return srv.(*GRPCServer).streamer.TransferStream(ss.Context(), internalReq, func(progress *httpstreamv1.TransferProgress) error {
+		return ss.SendMsg(encodeTransferProgress(progress))
+	})
 }
 
 func decodeTransferRequest(msg *dynamicpb.Message) (*httpstreamv1.TransferRequest, error) {
@@ -174,6 +199,21 @@ func encodeTransferResponse(resp *httpstreamv1.TransferResponse) *dynamicpb.Mess
 	return msg
 }
 
+func encodeTransferProgress(progress *httpstreamv1.TransferProgress) *dynamicpb.Message {
+	msg := dynamicpb.NewMessage(transferProgressDesc)
+	fields := transferProgressDesc.Fields()
+	msg.Set(fields.ByName("transfer_id"), protoreflect.ValueOfString(progress.TransferID))
+	msg.Set(fields.ByName("bytes_transferred"), protoreflect.ValueOfInt64(progress.BytesTransferred))
+	msg.Set(fields.ByName("source_status_code"), protoreflect.ValueOfInt32(progress.SourceStatusCode))
+	msg.Set(fields.ByName("target_status_code"), protoreflect.ValueOfInt32(progress.TargetStatusCode))
+	msg.Set(fields.ByName("source_content_length"), protoreflect.ValueOfInt64(progress.SourceContentLength))
+	msg.Set(fields.ByName("duration_millis"), protoreflect.ValueOfInt64(progress.DurationMillis))
+	msg.Set(fields.ByName("average_bytes_per_second"), protoreflect.ValueOfFloat64(progress.AverageBytesPerSecond))
+	msg.Set(fields.ByName("progress_percent"), protoreflect.ValueOfFloat64(progress.ProgressPercent))
+	msg.Set(fields.ByName("done"), protoreflect.ValueOfBool(progress.Done))
+	return msg
+}
+
 func getMessageField(msg *dynamicpb.Message, field protoreflect.FieldDescriptor) (protoreflect.Message, error) {
 	if !msg.Has(field) {
 		return nil, fmt.Errorf("%s is required", field.Name())
@@ -248,6 +288,20 @@ func buildFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 					field("progress_percent", 8, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, "", "progressPercent"),
 				},
 			},
+			{
+				Name: stringp("TransferProgress"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					field("transfer_id", 1, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_STRING, "", "transferId"),
+					field("bytes_transferred", 2, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "bytesTransferred"),
+					field("source_status_code", 3, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT32, "", "sourceStatusCode"),
+					field("target_status_code", 4, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT32, "", "targetStatusCode"),
+					field("source_content_length", 5, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "sourceContentLength"),
+					field("duration_millis", 6, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "durationMillis"),
+					field("average_bytes_per_second", 7, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, "", "averageBytesPerSecond"),
+					field("progress_percent", 8, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, "", "progressPercent"),
+					field("done", 9, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_BOOL, "", "done"),
+				},
+			},
 		},
 		Service: []*descriptorpb.ServiceDescriptorProto{
 			{
@@ -257,6 +311,12 @@ func buildFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 						Name:       stringp("Transfer"),
 						InputType:  stringp(".httpstream.v1.TransferRequest"),
 						OutputType: stringp(".httpstream.v1.TransferResponse"),
+					},
+					{
+						Name:            stringp("TransferStream"),
+						InputType:       stringp(".httpstream.v1.TransferRequest"),
+						OutputType:      stringp(".httpstream.v1.TransferProgress"),
+						ServerStreaming: boolp(true),
 					},
 				},
 			},

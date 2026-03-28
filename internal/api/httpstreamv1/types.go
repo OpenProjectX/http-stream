@@ -29,3 +29,15 @@ type TransferResponse struct {
 	AverageBytesPerSecond float64
 	ProgressPercent       float64
 }
+
+type TransferProgress struct {
+	TransferID            string
+	BytesTransferred      int64
+	SourceStatusCode      int32
+	TargetStatusCode      int32
+	SourceContentLength   int64
+	DurationMillis        int64
+	AverageBytesPerSecond float64
+	ProgressPercent       float64
+	Done                  bool
+}

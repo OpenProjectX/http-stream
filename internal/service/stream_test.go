@@ -122,3 +122,57 @@ func TestTransferToLocalFile(t *testing.T) {
 		t.Fatalf("progress = %f want 100", resp.ProgressPercent)
 	}
 }
+
+func TestTransferStreamProgress(t *testing.T) {
+	payload := "progress payload"
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, payload)
+	}))
+	defer source.Close()
+
+	targetPath := filepath.Join(t.TempDir(), "progress", "payload.bin")
+
+	svc := New(source.Client(), pipeline.NewRegistry())
+	base := time.Date(2026, 3, 28, 13, 0, 0, 0, time.UTC)
+	calls := 0
+	svc.now = func() time.Time {
+		defer func() { calls++ }()
+		return base.Add(time.Duration(calls) * 100 * time.Millisecond)
+	}
+
+	var updates []*httpstreamv1.TransferProgress
+	err := svc.TransferStream(context.Background(), &httpstreamv1.TransferRequest{
+		Source: &httpstreamv1.HTTPRequest{
+			Method: http.MethodGet,
+			URL:    source.URL,
+		},
+		Target: &httpstreamv1.HTTPRequest{
+			LocalPath: targetPath,
+		},
+	}, func(progress *httpstreamv1.TransferProgress) error {
+		copy := *progress
+		updates = append(updates, &copy)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("TransferStream() error = %v", err)
+	}
+
+	if len(updates) < 2 {
+		t.Fatalf("updates len = %d want at least 2", len(updates))
+	}
+	if updates[0].BytesTransferred != 0 || updates[0].Done {
+		t.Fatalf("first update = %+v want initial progress event", updates[0])
+	}
+	last := updates[len(updates)-1]
+	if !last.Done {
+		t.Fatalf("last update done = %v want true", last.Done)
+	}
+	if last.BytesTransferred != int64(len(payload)) {
+		t.Fatalf("last bytes = %d want %d", last.BytesTransferred, len(payload))
+	}
+	if last.ProgressPercent != 100 {
+		t.Fatalf("last progress = %f want 100", last.ProgressPercent)
+	}
+}

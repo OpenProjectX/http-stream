@@ -18,6 +18,7 @@ The service exposes one RPC:
 
 ```proto
 rpc Transfer(TransferRequest) returns (TransferResponse);
+rpc TransferStream(TransferRequest) returns (stream TransferProgress);
 ```
 
 `TransferRequest` contains:
@@ -33,6 +34,12 @@ rpc Transfer(TransferRequest) returns (TransferResponse);
 - `durationMillis`: end-to-end transfer duration inside the service
 - `averageBytesPerSecond`: average throughput over the completed transfer
 - `progressPercent`: final completion percentage, typically `100` for successful transfers
+
+`TransferStream` is the UI-oriented variant. It emits:
+
+- an initial event with `bytesTransferred = 0`
+- intermediate progress events while bytes are flowing
+- a final event with `done = true`
 
 ## Example request
 
@@ -114,3 +121,5 @@ This keeps transport concerns, HTTP streaming, and transform logic separated so 
 For local disk targets, the service creates parent directories automatically and returns `target_status_code = 0` because no downstream HTTP response exists.
 
 For observability, the gRPC response now carries final transfer metrics so clients can record throughput and completion without scraping logs.
+
+For continuous observability, use `TransferStream` from the UI and bind `progressPercent` or `bytesTransferred / sourceContentLength` to the progress bar.

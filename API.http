@@ -10,6 +10,8 @@
 ### Response fields now include:
 ### transferId, bytesTransferred, sourceStatusCode, targetStatusCode,
 ### sourceContentLength, durationMillis, averageBytesPerSecond, progressPercent
+###
+### For continuous UI updates, call TransferStream instead of Transfer.
 
 ### Transfer without pipeline
 GRPC localhost:7080/httpstream.v1.StreamService/Transfer
@@ -77,4 +79,19 @@ GRPC localhost:7080/httpstream.v1.StreamService/Transfer
       }
     }
   ]
+}
+
+###
+
+### TransferStream for UI progress
+GRPC localhost:7080/httpstream.v1.StreamService/TransferStream
+
+{
+  "source": {
+    "method": "GET",
+    "url": "https://source.example/object"
+  },
+  "target": {
+    "localPath": "/tmp/http-stream/object.bin"
+  }
 }
