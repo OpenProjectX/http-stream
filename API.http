@@ -1,0 +1,29 @@
+### Transfer
+GRPC localhost:7080/httpstream.v1.StreamService/Transfer
+
+{
+  "source": {
+    "method": "GET",
+    "url": "https://source.example/object",
+    "headers": {
+      "Authorization": "Bearer source-token"
+    }
+  },
+  "target": {
+    "method": "PUT",
+    "url": "https://target.example/object",
+    "headers": {
+      "Authorization": "Bearer target-token",
+      "Content-Type": "application/octet-stream"
+    }
+  },
+  "pipeline": [
+    {
+      "name": "encrypt.aes_ctr",
+      "config": {
+        "key_b64": "<base64-encoded-16-24-or-32-byte-key>",
+        "iv_b64": "<base64-encoded-16-byte-iv>"
+      }
+    }
+  ]
+}

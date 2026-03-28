@@ -27,7 +27,7 @@ rpc Transfer(TransferRequest) returns (TransferResponse);
 
 ## Example request
 
-The runtime uses a JSON gRPC codec for now, which keeps the service buildable without requiring `protoc` in the environment. The proto file remains the contract to generate standard stubs later.
+The service now speaks standard protobuf gRPC, so IDE clients such as GoLand or IntelliJ gRPC requests can use the proto contract directly.
 
 ```json
 {

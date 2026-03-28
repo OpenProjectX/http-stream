@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenProjectX/http-stream/internal/api/httpstreamv1"
+	httpstreamv1 "github.com/OpenProjectX/http-stream/api/httpstream/v1"
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
 )
 
@@ -88,7 +88,7 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 	}
 
 	return &httpstreamv1.TransferResponse{
-		TransferID:       s.now().UTC().Format("20060102T150405.000000000Z07:00"),
+		TransferId:       s.now().UTC().Format("20060102T150405.000000000Z07:00"),
 		BytesTransferred: counter.N,
 		SourceStatusCode: int32(sourceResp.StatusCode),
 		TargetStatusCode: int32(targetResp.StatusCode),
@@ -105,13 +105,13 @@ func validateTransferRequest(req *httpstreamv1.TransferRequest) error {
 	if req.Target == nil {
 		return errors.New("target is required")
 	}
-	if req.Source.URL == "" || req.Target.URL == "" {
+	if req.Source.GetUrl() == "" || req.Target.GetUrl() == "" {
 		return errors.New("source.url and target.url are required")
 	}
-	if req.Source.Method == "" {
+	if req.Source.GetMethod() == "" {
 		req.Source.Method = http.MethodGet
 	}
-	if req.Target.Method == "" {
+	if req.Target.GetMethod() == "" {
 		req.Target.Method = http.MethodPut
 	}
 	return nil
@@ -123,7 +123,7 @@ func buildHTTPRequest(ctx context.Context, spec *httpstreamv1.HTTPRequest, body 
 		reader = body
 	}
 
-	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(spec.Method), spec.URL, reader)
+	req, err := http.NewRequestWithContext(ctx, strings.ToUpper(spec.Method), spec.Url, reader)
 	if err != nil {
 		if body != nil {
 			body.Close()

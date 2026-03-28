@@ -6,18 +6,16 @@ import (
 	"net/http"
 	"os"
 
+	httpstreamv1 "github.com/OpenProjectX/http-stream/api/httpstream/v1"
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
 	"github.com/OpenProjectX/http-stream/internal/server"
 	"github.com/OpenProjectX/http-stream/internal/service"
-	"github.com/OpenProjectX/http-stream/internal/transport/grpcjson"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
 	addr := getenv("HTTP_STREAM_LISTEN_ADDR", ":8080")
-
-	encoding.RegisterCodec(grpcjson.Codec{})
 
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -35,7 +33,8 @@ func main() {
 	streamer := service.New(httpClient, registry)
 
 	grpcServer := grpc.NewServer()
-	server.Register(grpcServer, server.New(streamer))
+	httpstreamv1.RegisterStreamServiceServer(grpcServer, server.New(streamer))
+	reflection.Register(grpcServer)
 
 	log.Printf("http-streamd listening on %s", addr)
 	if err := grpcServer.Serve(lis); err != nil {
