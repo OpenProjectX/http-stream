@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/example/http-stream/internal/pipeline"
-	"github.com/example/http-stream/internal/server"
-	"github.com/example/http-stream/internal/service"
-	"github.com/example/http-stream/internal/transport/grpcjson"
+	"github.com/OpenProjectX/http-stream/internal/pipeline"
+	"github.com/OpenProjectX/http-stream/internal/server"
+	"github.com/OpenProjectX/http-stream/internal/service"
+	"github.com/OpenProjectX/http-stream/internal/transport/grpcjson"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
 )

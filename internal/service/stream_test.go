@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/example/http-stream/internal/api/httpstreamv1"
-	"github.com/example/http-stream/internal/pipeline"
+	"github.com/OpenProjectX/http-stream/internal/api/httpstreamv1"
+	"github.com/OpenProjectX/http-stream/internal/pipeline"
 )
 
 func TestTransfer(t *testing.T) {

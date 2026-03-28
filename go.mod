@@ -1,4 +1,4 @@
-module github.com/example/http-stream
+module github.com/OpenProjectX/http-stream
 
 go 1.26.0
 

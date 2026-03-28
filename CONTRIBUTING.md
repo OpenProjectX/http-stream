@@ -31,7 +31,7 @@ go version go1.26.0 linux/amd64
 ## Clone and open the project
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/OpenProjectX/http-stream.git
 cd http-stream
 ```
 
@@ -117,7 +117,7 @@ To run the service from GoLand:
 
 1. Open `Run` > `Edit Configurations`.
 2. Add a new `Go Build` or `Go Application` configuration.
-3. Set the package path to `github.com/example/http-stream/cmd/http-streamd` or select the `cmd/http-streamd` directory.
+3. Set the package path to `github.com/OpenProjectX/http-stream/cmd/http-streamd` or select the `cmd/http-streamd` directory.
 4. Optional: add `HTTP_STREAM_LISTEN_ADDR=:9090` as an environment variable.
 5. Run the configuration.
 

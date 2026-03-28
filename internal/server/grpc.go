@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/example/http-stream/internal/api/httpstreamv1"
-	"github.com/example/http-stream/internal/service"
+	"github.com/OpenProjectX/http-stream/internal/api/httpstreamv1"
+	"github.com/OpenProjectX/http-stream/internal/service"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

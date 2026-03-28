@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package httpstream.v1;
 
-option go_package = "github.com/example/http-stream/api/httpstream/v1;httpstreamv1";
+option go_package = "github.com/OpenProjectX/http-stream/api/httpstream/v1;httpstreamv1";
 
 service StreamService {
   rpc Transfer(TransferRequest) returns (TransferResponse);
