@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package httpstream.v1;
+
+option go_package = "github.com/example/http-stream/api/httpstream/v1;httpstreamv1";
+
+service StreamService {
+  rpc Transfer(TransferRequest) returns (TransferResponse);
+}
+
+message TransferRequest {
+  HttpRequest source = 1;
+  HttpRequest target = 2;
+  repeated PipelineStage pipeline = 3;
+}
+
+message HttpRequest {
+  string method = 1;
+  string url = 2;
+  map<string, string> headers = 3;
+  int64 content_length = 4;
+}
+
+message PipelineStage {
+  string name = 1;
+  map<string, string> config = 2;
+}
+
+message TransferResponse {
+  string transfer_id = 1;
+  int64 bytes_transferred = 2;
+  int32 source_status_code = 3;
+  int32 target_status_code = 4;
+}
