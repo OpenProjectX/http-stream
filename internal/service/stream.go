@@ -36,6 +36,8 @@ func New(client *http.Client, registry *pipeline.Registry) *Streamer {
 }
 
 func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferRequest) (*httpstreamv1.TransferResponse, error) {
+	startedAt := s.now()
+
 	if err := validateTransferRequest(req); err != nil {
 		return nil, err
 	}
@@ -70,7 +72,7 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 	defer body.Close()
 
 	if req.Target.LocalPath != "" {
-		return s.transferToLocalFile(body, sourceResp.StatusCode, req.Target.LocalPath)
+		return s.transferToLocalFile(body, sourceResp.StatusCode, sourceResp.ContentLength, req.Target.LocalPath, startedAt)
 	}
 
 	targetReq, err := buildHTTPRequest(ctx, req.Target, body)
@@ -93,15 +95,10 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 		return nil, fmt.Errorf("target request failed with status %d", targetResp.StatusCode)
 	}
 
-	return &httpstreamv1.TransferResponse{
-		TransferID:       s.now().UTC().Format("20060102T150405.000000000Z07:00"),
-		BytesTransferred: counter.N,
-		SourceStatusCode: int32(sourceResp.StatusCode),
-		TargetStatusCode: int32(targetResp.StatusCode),
-	}, nil
+	return buildTransferResponse(s.now, startedAt, counter.N, sourceResp.ContentLength, int32(sourceResp.StatusCode), int32(targetResp.StatusCode)), nil
 }
 
-func (s *Streamer) transferToLocalFile(body io.Reader, sourceStatusCode int, localPath string) (*httpstreamv1.TransferResponse, error) {
+func (s *Streamer) transferToLocalFile(body io.Reader, sourceStatusCode int, sourceContentLength int64, localPath string, startedAt time.Time) (*httpstreamv1.TransferResponse, error) {
 	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
 		return nil, fmt.Errorf("create parent directories for %q: %w", localPath, err)
 	}
@@ -117,12 +114,40 @@ func (s *Streamer) transferToLocalFile(body io.Reader, sourceStatusCode int, loc
 		return nil, fmt.Errorf("write target file %q: %w", localPath, err)
 	}
 
+	return buildTransferResponse(s.now, startedAt, written, sourceContentLength, int32(sourceStatusCode), 0), nil
+}
+
+func buildTransferResponse(now func() time.Time, startedAt time.Time, bytesTransferred, sourceContentLength int64, sourceStatusCode, targetStatusCode int32) *httpstreamv1.TransferResponse {
+	finishedAt := now()
+	duration := finishedAt.Sub(startedAt)
+	durationMillis := duration.Milliseconds()
+	if durationMillis < 0 {
+		durationMillis = 0
+	}
+
+	var averageBytesPerSecond float64
+	if duration > 0 {
+		averageBytesPerSecond = float64(bytesTransferred) / duration.Seconds()
+	}
+
+	progressPercent := 100.0
+	if sourceContentLength > 0 {
+		progressPercent = (float64(bytesTransferred) / float64(sourceContentLength)) * 100
+		if progressPercent > 100 {
+			progressPercent = 100
+		}
+	}
+
 	return &httpstreamv1.TransferResponse{
-		TransferID:       s.now().UTC().Format("20060102T150405.000000000Z07:00"),
-		BytesTransferred: written,
-		SourceStatusCode: int32(sourceStatusCode),
-		TargetStatusCode: 0,
-	}, nil
+		TransferID:            finishedAt.UTC().Format("20060102T150405.000000000Z07:00"),
+		BytesTransferred:      bytesTransferred,
+		SourceStatusCode:      sourceStatusCode,
+		TargetStatusCode:      targetStatusCode,
+		SourceContentLength:   sourceContentLength,
+		DurationMillis:        durationMillis,
+		AverageBytesPerSecond: averageBytesPerSecond,
+		ProgressPercent:       progressPercent,
+	}
 }
 
 func validateTransferRequest(req *httpstreamv1.TransferRequest) error {

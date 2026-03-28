@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/OpenProjectX/http-stream/internal/api/httpstreamv1"
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
@@ -36,6 +37,9 @@ func TestTransfer(t *testing.T) {
 	defer target.Close()
 
 	svc := New(source.Client(), pipeline.NewRegistry())
+	svc.now = func() time.Time {
+		return time.Date(2026, 3, 28, 13, 0, 0, 0, time.UTC)
+	}
 	resp, err := svc.Transfer(context.Background(), &httpstreamv1.TransferRequest{
 		Source: &httpstreamv1.HTTPRequest{
 			Method: http.MethodGet,
@@ -62,6 +66,12 @@ func TestTransfer(t *testing.T) {
 	if resp.TargetStatusCode != http.StatusCreated {
 		t.Fatalf("target status = %d", resp.TargetStatusCode)
 	}
+	if resp.SourceContentLength != int64(len(payload)) {
+		t.Fatalf("source content length = %d want %d", resp.SourceContentLength, len(payload))
+	}
+	if resp.ProgressPercent != 100 {
+		t.Fatalf("progress = %f want 100", resp.ProgressPercent)
+	}
 }
 
 func TestTransferToLocalFile(t *testing.T) {
@@ -75,6 +85,9 @@ func TestTransferToLocalFile(t *testing.T) {
 	targetPath := filepath.Join(t.TempDir(), "nested", "payload.bin")
 
 	svc := New(source.Client(), pipeline.NewRegistry())
+	svc.now = func() time.Time {
+		return time.Date(2026, 3, 28, 13, 0, 0, 0, time.UTC)
+	}
 	resp, err := svc.Transfer(context.Background(), &httpstreamv1.TransferRequest{
 		Source: &httpstreamv1.HTTPRequest{
 			Method: http.MethodGet,
@@ -101,5 +114,11 @@ func TestTransferToLocalFile(t *testing.T) {
 	}
 	if resp.TargetStatusCode != 0 {
 		t.Fatalf("target status = %d want 0 for local file target", resp.TargetStatusCode)
+	}
+	if resp.SourceContentLength != int64(len(payload)) {
+		t.Fatalf("source content length = %d want %d", resp.SourceContentLength, len(payload))
+	}
+	if resp.ProgressPercent != 100 {
+		t.Fatalf("progress = %f want 100", resp.ProgressPercent)
 	}
 }

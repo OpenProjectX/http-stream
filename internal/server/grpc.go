@@ -167,6 +167,10 @@ func encodeTransferResponse(resp *httpstreamv1.TransferResponse) *dynamicpb.Mess
 	msg.Set(fields.ByName("bytes_transferred"), protoreflect.ValueOfInt64(resp.BytesTransferred))
 	msg.Set(fields.ByName("source_status_code"), protoreflect.ValueOfInt32(resp.SourceStatusCode))
 	msg.Set(fields.ByName("target_status_code"), protoreflect.ValueOfInt32(resp.TargetStatusCode))
+	msg.Set(fields.ByName("source_content_length"), protoreflect.ValueOfInt64(resp.SourceContentLength))
+	msg.Set(fields.ByName("duration_millis"), protoreflect.ValueOfInt64(resp.DurationMillis))
+	msg.Set(fields.ByName("average_bytes_per_second"), protoreflect.ValueOfFloat64(resp.AverageBytesPerSecond))
+	msg.Set(fields.ByName("progress_percent"), protoreflect.ValueOfFloat64(resp.ProgressPercent))
 	return msg
 }
 
@@ -238,6 +242,10 @@ func buildFileDescriptorProto() *descriptorpb.FileDescriptorProto {
 					field("bytes_transferred", 2, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "bytesTransferred"),
 					field("source_status_code", 3, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT32, "", "sourceStatusCode"),
 					field("target_status_code", 4, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT32, "", "targetStatusCode"),
+					field("source_content_length", 5, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "sourceContentLength"),
+					field("duration_millis", 6, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_INT64, "", "durationMillis"),
+					field("average_bytes_per_second", 7, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, "", "averageBytesPerSecond"),
+					field("progress_percent", 8, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, "", "progressPercent"),
 				},
 			},
 		},

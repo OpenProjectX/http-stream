@@ -6,6 +6,10 @@
 ### If GoLand does not auto-detect the proto via reflection,
 ### configure this file/request to use:
 ### api/httpstream/v1/httpstream.proto
+###
+### Response fields now include:
+### transferId, bytesTransferred, sourceStatusCode, targetStatusCode,
+### sourceContentLength, durationMillis, averageBytesPerSecond, progressPercent
 
 ### Transfer without pipeline
 GRPC localhost:7080/httpstream.v1.StreamService/Transfer

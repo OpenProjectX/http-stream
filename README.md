@@ -26,6 +26,14 @@ rpc Transfer(TransferRequest) returns (TransferResponse);
 - `target`: downstream HTTP request definition for remote uploads, or a local disk path for on-machine writes
 - `pipeline`: ordered stages to wrap the source stream before it is sent to the target
 
+`TransferResponse` now includes transfer observability fields:
+
+- `bytesTransferred`: final streamed byte count
+- `sourceContentLength`: source response content length when known
+- `durationMillis`: end-to-end transfer duration inside the service
+- `averageBytesPerSecond`: average throughput over the completed transfer
+- `progressPercent`: final completion percentage, typically `100` for successful transfers
+
 ## Example request
 
 The service now speaks standard protobuf gRPC, so IDE clients such as GoLand or IntelliJ gRPC requests can use the proto contract directly.
@@ -104,3 +112,5 @@ To add a new pipeline transform:
 This keeps transport concerns, HTTP streaming, and transform logic separated so the project can grow into retries, observability, auth plugins, or richer transfer policies without reworking the core pipeline.
 
 For local disk targets, the service creates parent directories automatically and returns `target_status_code = 0` because no downstream HTTP response exists.
+
+For observability, the gRPC response now carries final transfer metrics so clients can record throughput and completion without scraping logs.
