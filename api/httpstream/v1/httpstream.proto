@@ -4,49 +4,108 @@ package httpstream.v1;
 
 option go_package = "github.com/OpenProjectX/http-stream/api/httpstream/v1;httpstreamv1";
 
+// StreamService orchestrates streaming data from an HTTP source to either
+// an HTTP target or a local file target.
 service StreamService {
+  // Transfer runs the copy once and returns a final summary after completion.
   rpc Transfer(TransferRequest) returns (TransferResponse);
+  // TransferStream runs the copy and emits live progress events that are
+  // suitable for UI progress bars and other real-time observers.
   rpc TransferStream(TransferRequest) returns (stream TransferProgress);
 }
 
+// TransferRequest describes the upstream source, downstream target, and any
+// ordered pipeline stages that should wrap the source stream in flight.
 message TransferRequest {
+  // source must be an HTTP request definition. In the current service design,
+  // the source is always fetched over HTTP.
   HttpRequest source = 1;
+  // target is either:
+  // - an HTTP request definition with url set, or
+  // - a local file target with local_path set.
+  // Exactly one of url or local_path should be set.
   HttpRequest target = 2;
+  // pipeline is applied in order between the source response body and the
+  // destination writer.
   repeated PipelineStage pipeline = 3;
 }
 
+// HttpRequest describes either an HTTP source/target request or a local file
+// target, depending on which fields are populated.
 message HttpRequest {
+  // method is the HTTP method for source or HTTP target requests.
+  // It is ignored for local file targets.
   string method = 1;
+  // url is the source or HTTP target URL.
+  // Do not set this when local_path is used.
   string url = 2;
+  // headers are applied to the HTTP source or HTTP target request.
+  // They are ignored for local file targets.
   map<string, string> headers = 3;
+  // content_length is the outgoing HTTP target content length when the caller
+  // wants to set it explicitly.
   int64 content_length = 4;
+  // local_path points to the local file to create or overwrite.
+  // Parent directories are created automatically by the service.
   string local_path = 5;
 }
 
+// PipelineStage identifies a pluggable transform and its string-based config.
 message PipelineStage {
+  // name identifies the registered stage implementation.
   string name = 1;
+  // config carries stage-specific parameters.
   map<string, string> config = 2;
 }
 
+// TransferResponse is the final summary returned by the unary Transfer RPC.
 message TransferResponse {
+  // transfer_id is a service-generated identifier for the transfer attempt.
   string transfer_id = 1;
+  // bytes_transferred is the total number of streamed bytes written to the
+  // destination.
   int64 bytes_transferred = 2;
+  // source_status_code is the HTTP response status from the source request.
   int32 source_status_code = 3;
+  // target_status_code is the downstream HTTP response status.
+  // It is 0 for local file targets.
   int32 target_status_code = 4;
+  // source_content_length is the source response content length when the
+  // upstream server provides it. It may be 0 or negative when unknown.
   int64 source_content_length = 5;
+  // duration_millis is the end-to-end transfer duration measured by the
+  // service.
   int64 duration_millis = 6;
+  // average_bytes_per_second is the average throughput across the completed
+  // transfer.
   double average_bytes_per_second = 7;
+  // progress_percent is the final completion percentage. Successful transfers
+  // usually report 100.
   double progress_percent = 8;
 }
 
+// TransferProgress is emitted by the TransferStream RPC to provide continuous
+// observability while bytes are flowing.
 message TransferProgress {
+  // transfer_id is stable across all progress events for one transfer.
   string transfer_id = 1;
+  // bytes_transferred is the cumulative byte count observed so far.
   int64 bytes_transferred = 2;
+  // source_status_code is set once the source request succeeds.
   int32 source_status_code = 3;
+  // target_status_code is populated on the final event for HTTP targets.
+  // It remains 0 during in-flight events and for local file targets.
   int32 target_status_code = 4;
+  // source_content_length is the source response content length when known.
   int64 source_content_length = 5;
+  // duration_millis is the elapsed time since the transfer started.
   int64 duration_millis = 6;
+  // average_bytes_per_second is the average throughput observed so far.
   double average_bytes_per_second = 7;
+  // progress_percent is the best-effort completion percentage.
+  // When the source content length is unknown, callers should treat this as
+  // advisory and prefer bytes_transferred.
   double progress_percent = 8;
+  // done is true only on the final event.
   bool done = 9;
 }
