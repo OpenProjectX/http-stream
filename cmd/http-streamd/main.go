@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 
-	httpstreamv1 "github.com/OpenProjectX/http-stream/api/httpstream/v1"
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
 	"github.com/OpenProjectX/http-stream/internal/server"
 	"github.com/OpenProjectX/http-stream/internal/service"
@@ -33,7 +32,7 @@ func main() {
 	streamer := service.New(httpClient, registry)
 
 	grpcServer := grpc.NewServer()
-	httpstreamv1.RegisterStreamServiceServer(grpcServer, server.New(streamer))
+	server.Register(grpcServer, server.New(streamer))
 	reflection.Register(grpcServer)
 
 	log.Printf("http-streamd listening on %s", addr)

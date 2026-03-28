@@ -1,4 +1,13 @@
 ### Transfer
+### Use the proto contract from this repo.
+### Start the server with:
+### HTTP_STREAM_LISTEN_ADDR=:7080 go run ./cmd/http-streamd
+###
+### If GoLand does not auto-detect the proto via reflection,
+### configure this file/request to use:
+### api/httpstream/v1/httpstream.proto
+
+### Transfer without pipeline
 GRPC localhost:7080/httpstream.v1.StreamService/Transfer
 
 {
@@ -16,6 +25,30 @@ GRPC localhost:7080/httpstream.v1.StreamService/Transfer
       "Authorization": "Bearer target-token",
       "Content-Type": "application/octet-stream"
     }
+  }
+}
+
+###
+
+### Transfer with AES-CTR encryption pipeline
+GRPC localhost:7080/httpstream.v1.StreamService/Transfer
+
+{
+  "source": {
+    "method": "GET",
+    "url": "https://source.example/object",
+    "headers": {
+      "Authorization": "Bearer source-token"
+    }
+  },
+  "target": {
+    "method": "PUT",
+    "url": "https://target.example/object",
+    "headers": {
+      "Authorization": "Bearer target-token",
+      "Content-Type": "application/octet-stream"
+    },
+    "contentLength": 0
   },
   "pipeline": [
     {

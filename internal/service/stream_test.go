@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	httpstreamv1 "github.com/OpenProjectX/http-stream/api/httpstream/v1"
+	"github.com/OpenProjectX/http-stream/internal/api/httpstreamv1"
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
 )
 
@@ -37,11 +37,11 @@ func TestTransfer(t *testing.T) {
 	resp, err := svc.Transfer(context.Background(), &httpstreamv1.TransferRequest{
 		Source: &httpstreamv1.HTTPRequest{
 			Method: http.MethodGet,
-			Url:    source.URL,
+			URL:    source.URL,
 		},
 		Target: &httpstreamv1.HTTPRequest{
 			Method: http.MethodPut,
-			Url:    target.URL,
+			URL:    target.URL,
 		},
 	})
 	if err != nil {
