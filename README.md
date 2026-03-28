@@ -72,6 +72,10 @@ Set `HTTP_STREAM_LISTEN_ADDR` to override the default listen address `:8080`.
 go test ./...
 ```
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup instructions, GoLand guidance, and the usual build, run, format, and test workflow.
+
 ## Extension model
 
 To add a new pipeline transform:

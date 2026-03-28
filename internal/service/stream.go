@@ -65,10 +65,10 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 	if err != nil {
 		return nil, err
 	}
+	defer body.Close()
 
 	targetReq, err := buildHTTPRequest(ctx, req.Target, body)
 	if err != nil {
-		body.Close()
 		return nil, fmt.Errorf("build target request: %w", err)
 	}
 	targetReq.ContentLength = req.Target.ContentLength
@@ -79,11 +79,13 @@ func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferReque
 
 	targetResp, err := s.client.Do(targetReq)
 	if err != nil {
-		counter.Close()
 		return nil, fmt.Errorf("send target request: %w", err)
 	}
 	defer targetResp.Body.Close()
 	io.Copy(io.Discard, targetResp.Body)
+	if targetResp.StatusCode < http.StatusOK || targetResp.StatusCode >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("target request failed with status %d", targetResp.StatusCode)
+	}
 
 	return &httpstreamv1.TransferResponse{
 		TransferID:       s.now().UTC().Format("20060102T150405.000000000Z07:00"),

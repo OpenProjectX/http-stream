@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/example/http-stream/internal/pipeline"
 	"github.com/example/http-stream/internal/server"
