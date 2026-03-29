@@ -99,6 +99,45 @@ go run ./cmd/http-streamd
 Set `HTTP_STREAM_LISTEN_ADDR` to override the default listen address `:8080`.
 Set `HTTP_STREAM_PROGRESS_LOG_INTERVAL` to control periodic progress logs. Example: `500ms`, `2s`, `5s`.
 
+## Docker
+
+Build the image locally:
+
+```bash
+docker build -t http-stream:local .
+```
+
+Run the container locally:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e HTTP_STREAM_LISTEN_ADDR=:8080 \
+  http-stream:local
+```
+
+If you use local disk targets from inside the container, mount a writable host directory into the container and point `target.localPath` at that mounted path.
+
+## GitHub Actions Publish
+
+The repository includes a workflow at `.github/workflows/publish-image.yml` that publishes to:
+
+```text
+ghcr.io/openprojectx/http-stream
+```
+
+Publish behavior:
+
+- triggers on pushes to `main`
+- also supports manual `workflow_dispatch`
+- tags the image with the first 8 characters of the commit SHA
+- uses GitHub Actions Buildx cache to accelerate repeated image builds
+
+Example published tag:
+
+```text
+ghcr.io/openprojectx/http-stream:1a2b3c4d
+```
+
 ## Test
 
 ```bash

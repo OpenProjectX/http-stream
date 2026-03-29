@@ -49,6 +49,12 @@ Build all packages:
 go build ./...
 ```
 
+Build the Docker image:
+
+```bash
+docker build -t http-stream:local .
+```
+
 ## Run
 
 Start the service with the default listen address:
@@ -102,6 +108,19 @@ go mod tidy
 ```
 
 This updates `go.mod` and `go.sum`.
+
+## GitHub Actions
+
+The repository publishes container images through:
+
+- `.github/workflows/publish-image.yml`
+
+The workflow pushes to:
+
+- `ghcr.io/openprojectx/http-stream`
+
+The image tag format is the first 8 characters of the commit SHA.
+The workflow also uses Docker Buildx cache via GitHub Actions cache storage to speed up repeated builds.
 
 ## GoLand setup
 
