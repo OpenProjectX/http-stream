@@ -98,6 +98,7 @@ go run ./cmd/http-streamd
 
 Set `HTTP_STREAM_LISTEN_ADDR` to override the default listen address `:8080`.
 Set `HTTP_STREAM_PROGRESS_LOG_INTERVAL` to control periodic progress logs. Example: `500ms`, `2s`, `5s`.
+Set `HTTP_STREAM_PROGRESS_WINDOW_BYTES` to control progress event emission by byte window. Example: `2097152` for `2 MiB`.
 
 ## Docker
 
@@ -137,6 +138,37 @@ Example published tag:
 ```text
 ghcr.io/openprojectx/http-stream:1a2b3c4d
 ```
+
+## GitHub Release Binaries
+
+The repository includes a workflow at `.github/workflows/release-binaries.yml` that builds release archives and uploads them to a GitHub Release.
+
+Release behavior:
+
+- triggers on pushes to tags matching `v*`
+- also supports manual `workflow_dispatch`
+- builds `http-streamd` for `linux`, `darwin`, and `windows`
+- publishes archives for `amd64`, `arm64`, and `linux/armv7`
+- attaches a `.sha256` file for each archive
+
+Included targets:
+
+- `linux/amd64`
+- `linux/arm64`
+- `linux/armv7`
+- `darwin/amd64`
+- `darwin/arm64`
+- `windows/amd64`
+- `windows/arm64`
+
+To cut a release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+That tag will trigger the workflow, create or update the corresponding GitHub Release, and attach the generated binary archives.
 
 ## Test
 

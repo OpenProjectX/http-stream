@@ -1,0 +1,118 @@
+name: Release Binaries
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+            archive: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive: zip
+          - goos: windows
+            goarch: arm64
+            archive: zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build binary
+        shell: bash
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          set -euxo pipefail
+
+          bin_name="http-streamd"
+          if [ "${GOOS}" = "windows" ]; then
+            bin_name="${bin_name}.exe"
+          fi
+
+          version="${GITHUB_REF_NAME}"
+          out_dir="dist/http-stream_${version}_${GOOS}_${GOARCH}"
+          if [ -n "${GOARM:-}" ]; then
+            out_dir="${out_dir}v${GOARM}"
+          fi
+
+          mkdir -p "${out_dir}"
+
+          go build \
+            -trimpath \
+            -ldflags="-s -w" \
+            -o "${out_dir}/${bin_name}" \
+            ./cmd/http-streamd
+
+          cp README.md "${out_dir}/" || true
+          cp LICENSE "${out_dir}/" || true
+
+          archive_path="${out_dir}.${{ matrix.archive }}"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd dist && zip -r "$(basename "${archive_path}")" "$(basename "${out_dir}")")
+          else
+            tar -C dist -czf "${archive_path}" "$(basename "${out_dir}")"
+          fi
+
+          sha256sum "${archive_path}" > "${archive_path}.sha256"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.sha256
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*
