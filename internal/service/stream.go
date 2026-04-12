@@ -17,11 +17,13 @@ import (
 )
 
 type Streamer struct {
-	client              *http.Client
-	registry            *pipeline.Registry
-	now                 func() time.Time
-	logger              *log.Logger
-	progressLogInterval time.Duration
+	client                *http.Client
+	registry              *pipeline.Registry
+	now                   func() time.Time
+	logger                *log.Logger
+	progressLogInterval   time.Duration
+	progressEventInterval time.Duration
+	progressEventBytes    int64
 }
 
 type ProgressObserver func(*httpstreamv1.TransferProgress) error
@@ -34,11 +36,13 @@ func New(client *http.Client, registry *pipeline.Registry) *Streamer {
 		registry = pipeline.NewRegistry()
 	}
 	return &Streamer{
-		client:              client,
-		registry:            registry,
-		now:                 time.Now,
-		logger:              log.Default(),
-		progressLogInterval: 2 * time.Second,
+		client:                client,
+		registry:              registry,
+		now:                   time.Now,
+		logger:                log.Default(),
+		progressLogInterval:   2 * time.Second,
+		progressEventInterval: 2 * time.Second,
+		progressEventBytes:    2 << 20,
 	}
 }
 
@@ -54,6 +58,21 @@ func (s *Streamer) SetProgressLogInterval(interval time.Duration) {
 		return
 	}
 	s.progressLogInterval = interval
+	s.progressEventInterval = interval
+}
+
+func (s *Streamer) SetProgressEventInterval(interval time.Duration) {
+	if interval <= 0 {
+		return
+	}
+	s.progressEventInterval = interval
+}
+
+func (s *Streamer) SetProgressEventBytes(size int64) {
+	if size <= 0 {
+		return
+	}
+	s.progressEventBytes = size
 }
 
 func (s *Streamer) Transfer(ctx context.Context, req *httpstreamv1.TransferRequest) (*httpstreamv1.TransferResponse, error) {
@@ -128,6 +147,9 @@ func (s *Streamer) transfer(ctx context.Context, req *httpstreamv1.TransferReque
 		observer:            observer,
 		logger:              s.logger,
 		logInterval:         s.progressLogInterval,
+		emitInterval:        s.progressEventInterval,
+		emitBytes:           s.progressEventBytes,
+		lastEmitAt:          startedAt,
 	}
 
 	if req.Target.LocalPath != "" {
@@ -408,6 +430,10 @@ type progressReadCloser struct {
 	logger              *log.Logger
 	logInterval         time.Duration
 	lastLogAt           time.Time
+	emitInterval        time.Duration
+	emitBytes           int64
+	lastEmitAt          time.Time
+	lastEmitBytes       int64
 }
 
 func (p *progressReadCloser) Read(buf []byte) (int, error) {
@@ -418,16 +444,31 @@ func (p *progressReadCloser) Read(buf []byte) (int, error) {
 	n, err := p.ReadCloser.Read(buf)
 	p.N += int64(n)
 	if n > 0 {
-		progress := buildTransferProgress(p.transferID, p.now, p.startedAt, p.N, p.sourceContentLength, p.sourceStatusCode, 0, false)
-		p.logProgress(progress)
-		if notifyErr := emitProgress(p.observer, progress); notifyErr != nil {
-			p.pendingErr = notifyErr
-			if err == nil {
-				err = notifyErr
+		now := p.now()
+		if p.shouldEmitProgress(now) {
+			progress := buildTransferProgress(p.transferID, func() time.Time { return now }, p.startedAt, p.N, p.sourceContentLength, p.sourceStatusCode, 0, false)
+			p.lastEmitAt = now
+			p.lastEmitBytes = p.N
+			p.logProgress(progress)
+			if notifyErr := emitProgress(p.observer, progress); notifyErr != nil {
+				p.pendingErr = notifyErr
+				if err == nil {
+					err = notifyErr
+				}
 			}
 		}
 	}
 	return n, err
+}
+
+func (p *progressReadCloser) shouldEmitProgress(now time.Time) bool {
+	if p.emitBytes > 0 && p.N-p.lastEmitBytes >= p.emitBytes {
+		return true
+	}
+	if p.emitInterval > 0 && (p.lastEmitAt.IsZero() || now.Sub(p.lastEmitAt) >= p.emitInterval) {
+		return true
+	}
+	return false
 }
 
 func (p *progressReadCloser) logProgress(progress *httpstreamv1.TransferProgress) {

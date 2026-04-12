@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -175,4 +176,118 @@ func TestTransferStreamProgress(t *testing.T) {
 	if last.ProgressPercent != 100 {
 		t.Fatalf("last progress = %f want 100", last.ProgressPercent)
 	}
+}
+
+func TestProgressReadCloserEmitsOnSizeWindow(t *testing.T) {
+	base := time.Date(2026, 3, 28, 13, 0, 0, 0, time.UTC)
+	times := []time.Time{
+		base.Add(100 * time.Millisecond),
+		base.Add(200 * time.Millisecond),
+		base.Add(200 * time.Millisecond),
+		base.Add(300 * time.Millisecond),
+	}
+	calls := 0
+
+	reader := &progressReadCloser{
+		ReadCloser:          io.NopCloser(&fixedChunkReader{chunks: [][]byte{[]byte("ab"), []byte("cd"), []byte("ef")}}),
+		transferID:          "size-window",
+		now:                 func() time.Time { now := times[calls]; calls++; return now },
+		startedAt:           base,
+		sourceContentLength: 6,
+		sourceStatusCode:    http.StatusOK,
+		logger:              log.New(io.Discard, "", 0),
+		logInterval:         time.Second,
+		emitInterval:        time.Second,
+		emitBytes:           4,
+		lastEmitAt:          base,
+	}
+
+	var updates []*httpstreamv1.TransferProgress
+	reader.observer = func(progress *httpstreamv1.TransferProgress) error {
+		copy := *progress
+		updates = append(updates, &copy)
+		return nil
+	}
+
+	buf := make([]byte, 2)
+	for {
+		_, err := reader.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Read() error = %v", err)
+		}
+	}
+
+	if len(updates) != 1 {
+		t.Fatalf("updates len = %d want 1", len(updates))
+	}
+	if updates[0].BytesTransferred != 4 {
+		t.Fatalf("bytes transferred = %d want 4", updates[0].BytesTransferred)
+	}
+}
+
+func TestProgressReadCloserEmitsOnTimeWindow(t *testing.T) {
+	base := time.Date(2026, 3, 28, 13, 0, 0, 0, time.UTC)
+	times := []time.Time{
+		base.Add(400 * time.Millisecond),
+		base.Add(1100 * time.Millisecond),
+		base.Add(1100 * time.Millisecond),
+		base.Add(1500 * time.Millisecond),
+	}
+	calls := 0
+
+	reader := &progressReadCloser{
+		ReadCloser:          io.NopCloser(&fixedChunkReader{chunks: [][]byte{[]byte("ab"), []byte("cd"), []byte("ef")}}),
+		transferID:          "time-window",
+		now:                 func() time.Time { now := times[calls]; calls++; return now },
+		startedAt:           base,
+		sourceContentLength: 6,
+		sourceStatusCode:    http.StatusOK,
+		logger:              log.New(io.Discard, "", 0),
+		logInterval:         time.Second,
+		emitInterval:        time.Second,
+		emitBytes:           10,
+		lastEmitAt:          base,
+	}
+
+	var updates []*httpstreamv1.TransferProgress
+	reader.observer = func(progress *httpstreamv1.TransferProgress) error {
+		copy := *progress
+		updates = append(updates, &copy)
+		return nil
+	}
+
+	buf := make([]byte, 2)
+	for {
+		_, err := reader.Read(buf)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("Read() error = %v", err)
+		}
+	}
+
+	if len(updates) != 1 {
+		t.Fatalf("updates len = %d want 1", len(updates))
+	}
+	if updates[0].BytesTransferred != 4 {
+		t.Fatalf("bytes transferred = %d want 4", updates[0].BytesTransferred)
+	}
+}
+
+type fixedChunkReader struct {
+	chunks [][]byte
+	index  int
+}
+
+func (r *fixedChunkReader) Read(p []byte) (int, error) {
+	if r.index >= len(r.chunks) {
+		return 0, io.EOF
+	}
+	n := copy(p, r.chunks[r.index])
+	r.index++
+	return n, nil
 }

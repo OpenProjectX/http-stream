@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/OpenProjectX/http-stream/internal/pipeline"
@@ -33,6 +34,7 @@ func main() {
 	streamer := service.New(httpClient, registry)
 	streamer.SetLogger(log.Default())
 	streamer.SetProgressLogInterval(getenvDuration("HTTP_STREAM_PROGRESS_LOG_INTERVAL", 2*time.Second))
+	streamer.SetProgressEventBytes(getenvInt64("HTTP_STREAM_PROGRESS_WINDOW_BYTES", 2<<20))
 
 	grpcServer := grpc.NewServer()
 	server.Register(grpcServer, server.New(streamer))
@@ -62,4 +64,17 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return duration
+}
+
+func getenvInt64(key string, fallback int64) int64 {
+	value := os.Getenv(key)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || parsed <= 0 {
+		log.Printf("invalid int64 for %s=%q, using fallback %d", key, value, fallback)
+		return fallback
+	}
+	return parsed
 }
